@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Før og etter</title>
+<style>
+  :root {
+    --bg: #eef1f0;
+    --ink: #1f2d2a;
+    --muted: #5d6b67;
+    --accent: #2f5d50;
+    --line: #cbd3d0;
+    --card: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141b19;
+      --ink: #e6ecea;
+      --muted: #97a5a1;
+      --accent: #7fb5a3;
+      --line: #2b3835;
+      --card: #1b2422;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.5;
+    padding: 2rem 1rem 3rem;
+  }
+  main { max-width: 960px; margin: 0 auto; }
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 400;
+    font-size: clamp(2rem, 6vw, 3.4rem);
+    letter-spacing: -0.02em;
+    margin: 0 0 .25rem;
+  }
+  .sub { color: var(--muted); margin: 0 0 1.75rem; }
+
+  .rooms { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.25rem; }
+  .rooms button {
+    font: inherit;
+    padding: .5rem .95rem;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .rooms button[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .rooms button:focus-visible, .compare input:focus-visible + .handle-focus {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .compare {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    background: var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    user-select: none;
+    touch-action: pan-y;
+    --pos: 50%;
+  }
+  .compare .layer {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .compare .before-wrap {
+    position: absolute; inset: 0;
+    clip-path: inset(0 calc(100% - var(--pos)) 0 0);
+  }
+  .placeholder {
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    text-align: center;
+    padding: 1rem;
+    color: var(--muted);
+    font-size: .95rem;
+  }
+  .placeholder.before { background: #b9c3bf; color: #2c3a36; }
+  .placeholder.after { background: #dfe7e3; color: #2c3a36; }
+
+  .tag {
+    position: absolute; top: .75rem;
+    padding: .2rem .65rem;
+    background: rgba(20, 27, 25, .72);
+    color: #fff;
+    border-radius: 4px;
+    font-size: .9rem;
+  }
+  .tag.l { left: .75rem; }
+  .tag.r { right: .75rem; }
+
+  .line {
+    position: absolute; top: 0; bottom: 0;
+    left: var(--pos);
+    width: 3px;
+    margin-left: -1.5px;
+    background: #fff;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.25);
+    pointer-events: none;
+  }
+  .knob {
+    position: absolute; top: 50%; left: var(--pos);
+    width: 44px; height: 44px;
+    margin: -22px 0 0 -22px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 6px rgba(0,0,0,.35);
+    display: grid; place-items: center;
+    pointer-events: none;
+    color: var(--accent);
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+  .compare input[type="range"] {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: ew-resize;
+  }
+  .handle-focus { position: absolute; inset: 0; pointer-events: none; }
+  .compare input:focus-visible ~ .knob { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .toggle {
+    font: inherit;
+    padding: .5rem .95rem;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .toggle:focus-visible, .editor input:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .editor {
+    margin-top: .75rem;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 1rem;
+  }
+  .editor[hidden] { display: none; }
+  .editor .rooms { margin-bottom: .75rem; }
+  .row {
+    display: grid;
+    grid-template-columns: 6.5rem 1fr 3rem;
+    align-items: center;
+    gap: .75rem;
+    margin-bottom: .6rem;
+  }
+  .row output { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .row input { width: 100%; accent-color: var(--accent); }
+  .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+  .bar { margin-top: 1rem; }
+
+  .note {
+    margin: 1rem 0 0;
+    color: var(--muted);
+    min-height: 1.5em;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .rooms button { transition: background .15s, color .15s; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Før og etter</h1>
+  <p class="sub">Dra i bildet for å se forskjellen.</p>
+
+  <div class="rooms" id="rooms" role="group" aria-label="Velg rom"></div>
+
+  <div class="compare" id="compare">
+    <div class="placeholder after" id="afterPh">Legg bildet inn i mappen bilder</div>
+    <img class="layer" id="afterImg" alt="Etter" hidden>
+    <div class="before-wrap">
+      <div class="placeholder before" id="beforePh">Legg bildet inn i mappen bilder</div>
+      <img class="layer" id="beforeImg" alt="Før" hidden>
+    </div>
+    <span class="tag l">Før</span>
+    <span class="tag r">Etter</span>
+    <div class="line"></div>
+    <input type="range" id="slider" min="0" max="100" value="50" aria-label="Sammenlign før og etter">
+    <span class="handle-focus"></span>
+    <div class="knob" aria-hidden="true">&#8596;</div>
+  </div>
+  <p class="note" id="note"></p>
+
+  <div class="bar">
+    <button type="button" class="toggle" id="toggle" aria-expanded="false" aria-controls="editor">Juster lys og farge</button>
+  </div>
+  <section class="editor" id="editor" hidden>
+    <div class="rooms" id="which" role="group" aria-label="Velg bilde som skal justeres"></div>
+    <div id="sliders"></div>
+    <div class="actions">
+      <button type="button" class="toggle" id="reset">Nullstill dette bildet</button>
+      <button type="button" class="toggle" id="copy">Kopier innstillinger</button>
+    </div>
+  </section>
+</main>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <filter id="warmF" color-interpolation-filters="sRGB">
+    <feComponentTransfer><feFuncR id="wrF" type="linear" slope="1"/><feFuncB id="wbF" type="linear" slope="1"/></feComponentTransfer>
+  </filter>
+  <filter id="warmE" color-interpolation-filters="sRGB">
+    <feComponentTransfer><feFuncR id="wrE" type="linear" slope="1"/><feFuncB id="wbE" type="linear" slope="1"/></feComponentTransfer>
+  </filter>
+</svg>
+
+<script>
+  // Rediger denne listen. Ett rom per linje.
+  // Bildene renses med rens_bilder.py og havner i mappen "bilder".
+  const rom = [
+    { navn: "Kjøkken 1", for: "bilder/kjokken-1-for.jpg", etter: "bilder/kjokken-1-etter.jpg", notat: "" },
+    { navn: "Kjøkken 2", for: "bilder/kjokken-2-for.jpg", etter: "bilder/kjokken-2-etter.jpg", notat: "" },
+    { navn: "Stue 1", for: "bilder/stue-1-for.jpg", etter: "bilder/stue-1-etter.jpg", notat: "" },
+    { navn: "Stue 2", for: "bilder/stue-2-for.jpg", etter: "bilder/stue-2-etter.jpg", notat: "" },
+    { navn: "Stue 3", for: "bilder/stue-3-for.jpg", etter: "bilder/stue-3-etter.jpg", notat: "" },
+    { navn: "Gang", for: "bilder/gang-1-for.jpg", etter: "bilder/gang-1-etter.jpg", notat: "" },
+    { navn: "Hage 1", for: "bilder/hage-1-for.jpg", etter: "bilder/hage-1-etter.jpg", notat: "" },
+    { navn: "Hage 2", for: "bilder/hage-2-for.jpg", etter: "bilder/hage-2-etter.jpg", notat: "" },
+    { navn: "Hage 3", for: "bilder/hage-3-for.jpg", etter: "bilder/hage-3-etter.jpg", notat: "" }
+  ];
+
+  const roomsEl = document.getElementById("rooms");
+  const compare = document.getElementById("compare");
+  const slider = document.getElementById("slider");
+  const noteEl = document.getElementById("note");
+  const beforeImg = document.getElementById("beforeImg");
+  const afterImg = document.getElementById("afterImg");
+  const beforePh = document.getElementById("beforePh");
+  const afterPh = document.getElementById("afterPh");
+
+  function setPos(v) { compare.style.setProperty("--pos", v + "%"); }
+  slider.addEventListener("input", () => setPos(slider.value));
+
+  function load(img, ph, src) {
+    img.hidden = true; ph.hidden = false;
+    img.onload = () => { img.hidden = false; ph.hidden = true; };
+    img.onerror = () => { img.hidden = true; ph.hidden = false; };
+    img.src = src;
+  }
+
+  // Lim inn innstillinger fra knappen "Kopier innstillinger" her, så gjelder de på alle enheter.
+  const standard = {};
+
+  const NULL = { b: 100, c: 100, s: 100, w: 0 };
+  const LAGRINGSNOKKEL = "for-og-etter-justering";
+  let justering = {};
+  try { justering = JSON.parse(localStorage.getItem(LAGRINGSNOKKEL)) || {}; } catch (e) {}
+  justering = Object.assign({}, standard, justering);
+
+  let cur = 0;
+  let side = "for";
+
+  function hent(i, s) {
+    justering[i] = justering[i] || {};
+    justering[i][s] = justering[i][s] || Object.assign({}, NULL);
+    return justering[i][s];
+  }
+  function lagre() {
+    try { localStorage.setItem(LAGRINGSNOKKEL, JSON.stringify(justering)); } catch (e) {}
+  }
+  function tilpass(img, nokkel, sfx) {
+    const j = hent(cur, nokkel);
+    const k = j.w / 400;
+    document.getElementById("wr" + sfx).setAttribute("slope", 1 + k);
+    document.getElementById("wb" + sfx).setAttribute("slope", 1 - k);
+    img.style.filter = "url(#warm" + sfx + ") brightness(" + j.b + "%) contrast(" + j.c + "%) saturate(" + j.s + "%)";
+  }
+  function bruk() {
+    tilpass(beforeImg, "for", "F");
+    tilpass(afterImg, "etter", "E");
+  }
+
+  const felt = [
+    { k: "b", navn: "Lysstyrke", min: 60, max: 140 },
+    { k: "c", navn: "Kontrast",  min: 60, max: 140 },
+    { k: "s", navn: "Metning",   min: 0,  max: 200 },
+    { k: "w", navn: "Varme",     min: -100, max: 100 }
+  ];
+  const slidersEl = document.getElementById("sliders");
+  const inputs = {};
+  felt.forEach(f => {
+    const rad = document.createElement("div");
+    rad.className = "row";
+    const id = "j-" + f.k;
+    const lab = document.createElement("label");
+    lab.htmlFor = id; lab.textContent = f.navn;
+    const inp = document.createElement("input");
+    inp.type = "range"; inp.id = id; inp.min = f.min; inp.max = f.max; inp.step = 1;
+    const out = document.createElement("output");
+    out.htmlFor = id;
+    inp.addEventListener("input", () => {
+      hent(cur, side)[f.k] = Number(inp.value);
+      out.textContent = inp.value;
+      bruk(); lagre();
+    });
+    inputs[f.k] = { inp, out };
+    rad.append(lab, inp, out);
+    slidersEl.appendChild(rad);
+  });
+  function visJustering() {
+    const j = hent(cur, side);
+    felt.forEach(f => { inputs[f.k].inp.value = j[f.k]; inputs[f.k].out.textContent = j[f.k]; });
+  }
+
+  const whichEl = document.getElementById("which");
+  [["for", "Før"], ["etter", "Etter"]].forEach(([nokkel, tekst]) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = tekst;
+    b.setAttribute("aria-pressed", nokkel === side);
+    b.addEventListener("click", () => {
+      side = nokkel;
+      [...whichEl.children].forEach(x => x.setAttribute("aria-pressed", x === b));
+      visJustering();
+    });
+    whichEl.appendChild(b);
+  });
+
+  const editor = document.getElementById("editor");
+  const toggle = document.getElementById("toggle");
+  toggle.addEventListener("click", () => {
+    editor.hidden = !editor.hidden;
+    toggle.setAttribute("aria-expanded", String(!editor.hidden));
+  });
+  document.getElementById("reset").addEventListener("click", () => {
+    justering[cur][side] = Object.assign({}, NULL);
+    visJustering(); bruk(); lagre();
+  });
+  document.getElementById("copy").addEventListener("click", async () => {
+    const tekst = JSON.stringify(justering);
+    try { await navigator.clipboard.writeText(tekst); noteEl.textContent = "Innstillingene er kopiert."; }
+    catch (e) { window.prompt("Kopier teksten under:", tekst); }
+  });
+
+  function velg(i) {
+    const r = rom[i];
+    cur = i;
+    [...roomsEl.children].forEach((b, j) => b.setAttribute("aria-pressed", j === i));
+    load(beforeImg, beforePh, r.for);
+    load(afterImg, afterPh, r.etter);
+    noteEl.textContent = r.notat;
+    slider.value = 50; setPos(50);
+    bruk(); visJustering();
+  }
+
+  rom.forEach((r, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = r.navn;
+    b.setAttribute("aria-pressed", "false");
+    b.addEventListener("click", () => velg(i));
+    roomsEl.appendChild(b);
+  });
+  velg(0);
+</script>
+</body>
+</html>
